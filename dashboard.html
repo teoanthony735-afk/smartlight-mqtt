@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Light Dashboard</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+  .topbar {
+    background: #1a1a2e;
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+  .status-pill {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: #2d2d4e;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #888;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: #4caf50; }
+  .status-dot.disconnected { background: #f44336; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .metric-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 600; color: #1a1a2e; }
+  .metric-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
+  .metric-card.motion-active .metric-value { color: #4caf50; }
+  .metric-card.motion-idle .metric-value { color: #888; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-title span { font-size: 11px; font-weight: 400; color: #aaa; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 6px 8px; color: #888; font-weight: 500; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 8px 8px; border-bottom: 1px solid #f9f9f9; color: #333; }
+  tr:last-child td { border-bottom: none; }
+
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .badge-green { background: #e8f5e9; color: #2e7d32; }
+  .badge-gray { background: #f5f5f5; color: #757575; }
+  .badge-blue { background: #e3f2fd; color: #1565c0; }
+  .badge-amber { background: #fff8e1; color: #f57f17; }
+  .badge-red { background: #ffebee; color: #c62828; }
+
+  .alert-list { display: flex; flex-direction: column; gap: 10px; }
+  .alert-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    align-items: flex-start;
+  }
+  .alert-warn { background: #fff8e1; }
+  .alert-ok { background: #e8f5e9; }
+  .alert-info { background: #e3f2fd; }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
+  .alert-warn .alert-dot { background: #f57f17; }
+  .alert-ok .alert-dot { background: #2e7d32; }
+  .alert-info .alert-dot { background: #1565c0; }
+  .alert-text { color: #333; line-height: 1.4; }
+  .alert-time { font-size: 11px; color: #aaa; margin-top: 2px; }
+
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+
+  @media (max-width: 768px) {
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Smart Light Dashboard</h1>
+  <div class="status-pill">
+    <div class="status-dot" id="mqttDot"></div>
+    <span id="mqttStatus">Connecting...</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Metric Cards -->
+  <div class="metric-grid">
+    <div class="metric-card" id="motionCard">
+      <div class="metric-label">Motion Status</div>
+      <div class="metric-value" id="motionVal">--</div>
+      <div class="metric-sub" id="motionTime">Waiting for data</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Power Draw</div>
+      <div class="metric-value" id="powerVal">-- W</div>
+      <div class="metric-sub">LED strip (30px)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Brightness</div>
+      <div class="metric-value" id="brightVal">--%</div>
+      <div class="metric-sub" id="brightSub">Waiting for data</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Motion Events Today</div>
+      <div class="metric-value" id="evtCount">0</div>
+      <div class="metric-sub">since page load</div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Power usage over time <span id="powerCount">0 readings</span></div>
+      <div class="chart-wrap"><canvas id="powerChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Brightness history <span id="brightCount">0 readings</span></div>
+      <div class="chart-wrap"><canvas id="brightChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Log + Alerts Row -->
+  <div class="grid3">
+    <div class="card">
+      <div class="card-title">Motion event log <span id="logCount">0 events</span></div>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Event</th>
+            <th>Brightness</th>
+          </tr>
+        </thead>
+        <tbody id="motionLog">
+          <tr><td colspan="3" style="color:#aaa;text-align:center;padding:20px">Waiting for motion events...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Predictive maintenance</div>
+      <div class="alert-list" id="alertList">
+        <div class="alert-item alert-info">
+          <div class="alert-dot"></div>
+          <div>
+            <div class="alert-text">System starting up — waiting for data</div>
+            <div class="alert-time">Now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ─── MQTT Config ───────────────────────────────────────────
+  const broker   = "wss://2df840c34030439ab219644c0a410424.s1.eu.hivemq.cloud:8884/mqtt";
+  const username = "smartlight_user";
+  const password = "Smart@1324";
+
+  // ─── State ────────────────────────────────────────────────
+  const MAX_POINTS = 20;
+  let powerData    = { labels: [], values: [] };
+  let brightData   = { labels: [], values: [] };
+  let motionLog    = [];
+  let motionCount  = 0;
+  let currentBright = 30;
+  let motionHighCount = 0;
+  let lastMotionTime = null;
+
+  // ─── Charts ───────────────────────────────────────────────
+  const powerChart = new Chart(document.getElementById('powerChart'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Power (W)',
+        data: [],
+        borderColor: '#e53935',
+        backgroundColor: 'rgba(229,57,53,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 6 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: 'Watts', font: { size: 10 } } }
+      }
+    }
+  });
+
+  const brightChart = new Chart(document.getElementById('brightChart'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Brightness %',
+        data: [],
+        borderColor: '#1e88e5',
+        backgroundColor: 'rgba(30,136,229,0.08)',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 0, maxTicksLimit: 6 }, grid: { display: false } },
+        y: { min: 0, max: 100, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' }, title: { display: true, text: '%', font: { size: 10 } } }
+      }
+    }
+  });
+
+  // ─── Helpers ──────────────────────────────────────────────
+  function now() {
+    return new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function addPoint(chart, dataObj, value, countEl) {
+    const t = now();
+    dataObj.labels.push(t);
+    dataObj.values.push(value);
+    if (dataObj.labels.length > MAX_POINTS) {
+      dataObj.labels.shift();
+      dataObj.values.shift();
+    }
+    chart.data.labels = dataObj.labels;
+    chart.data.datasets[0].data = dataObj.values;
+    chart.update();
+    if (countEl) countEl.textContent = dataObj.values.length + ' readings';
+  }
+
+  function updateMaintenance() {
+    const alerts = [];
+    const t = now();
+
+    if (motionHighCount > 50) {
+      alerts.push({ type: 'warn', text: 'High motion frequency detected — verify sensor is not triggered by HVAC or fans', time: t });
+    }
+    if (powerData.values.length > 3) {
+      const avg = powerData.values.reduce((a,b) => a+b, 0) / powerData.values.length;
+      if (avg > 16) {
+        alerts.push({ type: 'warn', text: 'Power draw above 16W average — check LED strip for faults', time: t });
+      }
+    }
+    alerts.push({ type: 'ok', text: 'LED strip operating within normal parameters', time: t });
+    alerts.push({ type: 'info', text: 'Next scheduled maintenance check: 30 days', time: t });
+
+    const el = document.getElementById('alertList');
+    el.innerHTML = alerts.map(a => `
+      <div class="alert-item alert-${a.type}">
+        <div class="alert-dot"></div>
+        <div>
+          <div class="alert-text">${a.text}</div>
+          <div class="alert-time">${a.time}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function addMotionLog(event, bright) {
+    const t = now();
+    motionLog.unshift({ time: t, event, bright });
+    if (motionLog.length > 50) motionLog.pop();
+
+    const tbody = document.getElementById('motionLog');
+    tbody.innerHTML = motionLog.slice(0, 15).map(r => `
+      <tr>
+        <td>${r.time}</td>
+        <td><span class="badge ${r.event === 'Detected' ? 'badge-green' : 'badge-gray'}">${r.event}</span></td>
+        <td><span class="badge badge-blue">${r.bright}%</span></td>
+      </tr>
+    `).join('');
+    document.getElementById('logCount').textContent = motionLog.length + ' events';
+  }
+
+  // ─── MQTT ─────────────────────────────────────────────────
+  const client = mqtt.connect(broker, {
+    username, password, reconnectPeriod: 3000
+  });
+
+  client.on('connect', () => {
+    document.getElementById('mqttDot').className = 'status-dot connected';
+    document.getElementById('mqttStatus').textContent = 'Connected';
+    client.subscribe('smartlight/#');
+    updateMaintenance();
+  });
+
+  client.on('error', () => {
+    document.getElementById('mqttDot').className = 'status-dot disconnected';
+    document.getElementById('mqttStatus').textContent = 'Error';
+  });
+
+  client.on('disconnect', () => {
+    document.getElementById('mqttDot').className = 'status-dot disconnected';
+    document.getElementById('mqttStatus').textContent = 'Disconnected';
+  });
+
+  client.on('message', (topic, message) => {
+    const val = message.toString();
+    const t = now();
+
+    if (topic === 'smartlight/motion') {
+      const detected = val === '1';
+      const card = document.getElementById('motionCard');
+      const motionVal = document.getElementById('motionVal');
+      const motionTime = document.getElementById('motionTime');
+
+      if (detected) {
+        motionVal.textContent = 'Detected';
+        card.className = 'metric-card motion-active';
+        motionCount++;
+        motionHighCount++;
+        document.getElementById('evtCount').textContent = motionCount;
+        motionTime.textContent = 'Last detected: ' + t;
+        addMotionLog('Detected', currentBright);
+      } else {
+        motionVal.textContent = 'Standby';
+        card.className = 'metric-card motion-idle';
+        motionTime.textContent = 'Cleared: ' + t;
+        addMotionLog('Cleared', currentBright);
+      }
+      updateMaintenance();
+    }
+
+    if (topic === 'smartlight/power') {
+      const w = parseFloat(val).toFixed(1);
+      document.getElementById('powerVal').textContent = w + ' W';
+      addPoint(powerChart, powerData, parseFloat(w), document.getElementById('powerCount'));
+      updateMaintenance();
+    }
+
+    if (topic === 'smartlight/brightness') {
+      const b = parseInt(val);
+      currentBright = b;
+      document.getElementById('brightVal').textContent = b + '%';
+      document.getElementById('brightSub').textContent = b === 100 ? 'Motion active' : 'Standby mode';
+      addPoint(brightChart, brightData, b, document.getElementById('brightCount'));
+    }
+  });
+</script>
+</body>
+</html>
