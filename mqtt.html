@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script>
+  const broker   = "wss://2df840c34030439ab219644c0a410424.s1.eu.hivemq.cloud:8884/mqtt";
+  const username = "smartlight_user";
+  const password = "Smart@1324";
+
+  const client = mqtt.connect(broker, {
+    username: username,
+    password: password,
+    reconnectPeriod: 3000
+  });
+
+  client.on('connect', () => {
+    console.log('MQTT connected');
+    client.subscribe('smartlight/motion');
+    client.subscribe('smartlight/power');
+    client.subscribe('smartlight/brightness');
+    client.subscribe('smartlight/colormode');
+  });
+
+  client.on('message', (topic, message) => {
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({ topic: topic, value: message.toString() })
+    );
+  });
+
+  window.addEventListener('message', (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      client.publish(data.topic, data.payload);
+    } catch(e) {
+      console.log('Message error:', e);
+    }
+  });
+
+  client.on('error', (err) => {
+    console.log('MQTT error:', err);
+  });
+
+  client.on('disconnect', () => {
+    console.log('MQTT disconnected');
+  });
+</script>
+</head>
+<body>
+  <p style="font-family: sans-serif; color: green;">MQTT Bridge Running</p>
+</body>
+</html>
