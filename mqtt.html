@@ -22,11 +22,13 @@
   });
 
   client.on('message', (topic, message) => {
-    window.ReactNativeWebView.postMessage(
-      JSON.stringify({ topic: topic, value: message.toString() })
-    );
+    // Send simple string format to Thunkable
+    // Format: "topic:value"
+    const simplified = topic.replace('smartlight/','') + ':' + message.toString();
+    window.ReactNativeWebView.postMessage(simplified);
   });
 
+  // Receive commands from Thunkable
   window.addEventListener('message', (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -39,13 +41,23 @@
   client.on('error', (err) => {
     console.log('MQTT error:', err);
   });
-
-  client.on('disconnect', () => {
-    console.log('MQTT disconnected');
-  });
 </script>
 </head>
 <body>
   <p style="font-family: sans-serif; color: green;">MQTT Bridge Running</p>
 </body>
 </html>
+```
+
+5. Replace `YOUR_HIVEMQ_USERNAME` and `YOUR_HIVEMQ_PASSWORD` with your credentials
+6. Click **Commit changes**
+
+---
+
+Now the messages sent to Thunkable will be simple strings like:
+```
+motion:1
+motion:0
+power:18.00
+brightness:100
+colormode:cool
