@@ -9,7 +9,6 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e; }
-
   .topbar {
     background: #1a1a2e;
     color: white;
@@ -36,9 +35,7 @@
   }
   .status-dot.connected { background: #4caf50; }
   .status-dot.disconnected { background: #f44336; }
-
   .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
-
   .metric-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -56,10 +53,8 @@
   .metric-sub { font-size: 12px; color: #aaa; margin-top: 4px; }
   .metric-card.motion-active .metric-value { color: #4caf50; }
   .metric-card.motion-idle .metric-value { color: #888; }
-
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
   .grid3 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
-
   .card {
     background: white;
     border-radius: 12px;
@@ -76,25 +71,17 @@
     justify-content: space-between;
   }
   .card-title span { font-size: 11px; font-weight: 400; color: #aaa; }
-
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; padding: 6px 8px; color: #888; font-weight: 500; border-bottom: 1px solid #f0f0f0; }
   td { padding: 8px 8px; border-bottom: 1px solid #f9f9f9; color: #333; }
   tr:last-child td { border-bottom: none; }
-
-  .badge {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 500;
-  }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
   .badge-green { background: #e8f5e9; color: #2e7d32; }
-  .badge-gray { background: #f5f5f5; color: #757575; }
-  .badge-blue { background: #e3f2fd; color: #1565c0; }
+  .badge-gray  { background: #f5f5f5; color: #757575; }
+  .badge-blue  { background: #e3f2fd; color: #1565c0; }
   .badge-amber { background: #fff8e1; color: #f57f17; }
-  .badge-red { background: #ffebee; color: #c62828; }
-
-  .alert-list { display: flex; flex-direction: column; gap: 10px; }
+  .badge-red   { background: #ffebee; color: #c62828; }
+  .alert-list { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
   .alert-item {
     display: flex;
     gap: 12px;
@@ -103,18 +90,26 @@
     font-size: 13px;
     align-items: flex-start;
   }
-  .alert-warn { background: #fff8e1; }
-  .alert-ok { background: #e8f5e9; }
-  .alert-info { background: #e3f2fd; }
+  .alert-warn   { background: #fff8e1; }
+  .alert-ok     { background: #e8f5e9; }
+  .alert-info   { background: #e3f2fd; }
+  .alert-danger { background: #ffebee; }
   .alert-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
-  .alert-warn .alert-dot { background: #f57f17; }
-  .alert-ok .alert-dot { background: #2e7d32; }
-  .alert-info .alert-dot { background: #1565c0; }
+  .alert-warn   .alert-dot { background: #f57f17; }
+  .alert-ok     .alert-dot { background: #2e7d32; }
+  .alert-info   .alert-dot { background: #1565c0; }
+  .alert-danger .alert-dot { background: #c62828; }
   .alert-text { color: #333; line-height: 1.4; }
   .alert-time { font-size: 11px; color: #aaa; margin-top: 2px; }
-
   .chart-wrap { position: relative; width: 100%; height: 220px; }
-
+  .alert-count-badge {
+    background: #ffebee;
+    color: #c62828;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
   @media (max-width: 768px) {
     .metric-grid { grid-template-columns: repeat(2, 1fr); }
     .grid2, .grid3 { grid-template-columns: 1fr; }
@@ -133,7 +128,6 @@
 
 <div class="container">
 
-  <!-- Metric Cards -->
   <div class="metric-grid">
     <div class="metric-card" id="motionCard">
       <div class="metric-label">Motion Status</div>
@@ -157,7 +151,6 @@
     </div>
   </div>
 
-  <!-- Charts Row -->
   <div class="grid2">
     <div class="card">
       <div class="card-title">Power usage over time <span id="powerCount">0 readings</span></div>
@@ -169,7 +162,6 @@
     </div>
   </div>
 
-  <!-- Log + Alerts Row -->
   <div class="grid3">
     <div class="card">
       <div class="card-title">Motion event log <span id="logCount">0 events</span></div>
@@ -187,12 +179,29 @@
       </table>
     </div>
     <div class="card">
-      <div class="card-title">Predictive maintenance</div>
+      <div class="card-title">
+        Predictive maintenance
+        <span class="alert-count-badge" id="alertCount">0 alerts</span>
+      </div>
       <div class="alert-list" id="alertList">
         <div class="alert-item alert-info">
           <div class="alert-dot"></div>
           <div>
             <div class="alert-text">System starting up — waiting for data</div>
+            <div class="alert-time">Now</div>
+          </div>
+        </div>
+        <div class="alert-item alert-ok">
+          <div class="alert-dot"></div>
+          <div>
+            <div class="alert-text">LED strip operating within normal parameters</div>
+            <div class="alert-time">Now</div>
+          </div>
+        </div>
+        <div class="alert-item alert-info">
+          <div class="alert-dot"></div>
+          <div>
+            <div class="alert-text">Next scheduled maintenance check: 30 days</div>
             <div class="alert-time">Now</div>
           </div>
         </div>
@@ -203,22 +212,18 @@
 </div>
 
 <script>
-  // ─── MQTT Config ───────────────────────────────────────────
   const broker   = "wss://2df840c34030439ab219644c0a410424.s1.eu.hivemq.cloud:8884/mqtt";
   const username = "smartlight_user";
   const password = "Smart@1324";
 
-  // ─── State ────────────────────────────────────────────────
-  const MAX_POINTS = 20;
-  let powerData    = { labels: [], values: [] };
-  let brightData   = { labels: [], values: [] };
-  let motionLog    = [];
-  let motionCount  = 0;
+  const MAX_POINTS  = 20;
+  let powerData     = { labels: [], values: [] };
+  let brightData    = { labels: [], values: [] };
+  let motionLog     = [];
+  let motionCount   = 0;
   let currentBright = 30;
-  let motionHighCount = 0;
-  let lastMotionTime = null;
+  let totalAlerts   = 0;
 
-  // ─── Charts ───────────────────────────────────────────────
   const powerChart = new Chart(document.getElementById('powerChart'), {
     type: 'line',
     data: {
@@ -271,14 +276,12 @@
     }
   });
 
-  // ─── Helpers ──────────────────────────────────────────────
   function now() {
     return new Date().toLocaleTimeString('en-SG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   function addPoint(chart, dataObj, value, countEl) {
-    const t = now();
-    dataObj.labels.push(t);
+    dataObj.labels.push(now());
     dataObj.values.push(value);
     if (dataObj.labels.length > MAX_POINTS) {
       dataObj.labels.shift();
@@ -290,41 +293,26 @@
     if (countEl) countEl.textContent = dataObj.values.length + ' readings';
   }
 
-  function updateMaintenance() {
-    const alerts = [];
-    const t = now();
-
-    if (motionHighCount > 50) {
-      alerts.push({ type: 'warn', text: 'High motion frequency detected — verify sensor is not triggered by HVAC or fans', time: t });
-    }
-    if (powerData.values.length > 3) {
-      const avg = powerData.values.reduce((a,b) => a+b, 0) / powerData.values.length;
-      if (avg > 16) {
-        alerts.push({ type: 'warn', text: 'Power draw above 16W average — check LED strip for faults', time: t });
-      }
-    }
-    alerts.push({ type: 'ok', text: 'LED strip operating within normal parameters', time: t });
-    alerts.push({ type: 'info', text: 'Next scheduled maintenance check: 30 days', time: t });
-
-    const el = document.getElementById('alertList');
-    el.innerHTML = alerts.map(a => `
-      <div class="alert-item alert-${a.type}">
-        <div class="alert-dot"></div>
-        <div>
-          <div class="alert-text">${a.text}</div>
-          <div class="alert-time">${a.time}</div>
-        </div>
+  function addAlert(type, text) {
+    totalAlerts++;
+    document.getElementById('alertCount').textContent = totalAlerts + ' alerts';
+    const alertList = document.getElementById('alertList');
+    const div = document.createElement('div');
+    div.className = 'alert-item alert-' + type;
+    div.innerHTML = `
+      <div class="alert-dot"></div>
+      <div>
+        <div class="alert-text">${text}</div>
+        <div class="alert-time">${now()}</div>
       </div>
-    `).join('');
+    `;
+    alertList.insertBefore(div, alertList.firstChild);
   }
 
   function addMotionLog(event, bright) {
-    const t = now();
-    motionLog.unshift({ time: t, event, bright });
+    motionLog.unshift({ time: now(), event, bright });
     if (motionLog.length > 50) motionLog.pop();
-
-    const tbody = document.getElementById('motionLog');
-    tbody.innerHTML = motionLog.slice(0, 15).map(r => `
+    document.getElementById('motionLog').innerHTML = motionLog.slice(0, 15).map(r => `
       <tr>
         <td>${r.time}</td>
         <td><span class="badge ${r.event === 'Detected' ? 'badge-green' : 'badge-gray'}">${r.event}</span></td>
@@ -334,16 +322,12 @@
     document.getElementById('logCount').textContent = motionLog.length + ' events';
   }
 
-  // ─── MQTT ─────────────────────────────────────────────────
-  const client = mqtt.connect(broker, {
-    username, password, reconnectPeriod: 3000
-  });
+  const client = mqtt.connect(broker, { username, password, reconnectPeriod: 3000 });
 
   client.on('connect', () => {
     document.getElementById('mqttDot').className = 'status-dot connected';
     document.getElementById('mqttStatus').textContent = 'Connected';
     client.subscribe('smartlight/#');
-    updateMaintenance();
   });
 
   client.on('error', () => {
@@ -358,36 +342,32 @@
 
   client.on('message', (topic, message) => {
     const val = message.toString();
-    const t = now();
 
     if (topic === 'smartlight/motion') {
       const detected = val === '1';
       const card = document.getElementById('motionCard');
-      const motionVal = document.getElementById('motionVal');
-      const motionTime = document.getElementById('motionTime');
-
       if (detected) {
-        motionVal.textContent = 'Detected';
+        document.getElementById('motionVal').textContent = 'Detected';
         card.className = 'metric-card motion-active';
         motionCount++;
-        motionHighCount++;
         document.getElementById('evtCount').textContent = motionCount;
-        motionTime.textContent = 'Last detected: ' + t;
+        document.getElementById('motionTime').textContent = 'Last detected: ' + now();
         addMotionLog('Detected', currentBright);
       } else {
-        motionVal.textContent = 'Standby';
+        document.getElementById('motionVal').textContent = 'Standby';
         card.className = 'metric-card motion-idle';
-        motionTime.textContent = 'Cleared: ' + t;
+        document.getElementById('motionTime').textContent = 'Cleared: ' + now();
         addMotionLog('Cleared', currentBright);
       }
-      updateMaintenance();
     }
 
     if (topic === 'smartlight/power') {
       const w = parseFloat(val).toFixed(1);
       document.getElementById('powerVal').textContent = w + ' W';
       addPoint(powerChart, powerData, parseFloat(w), document.getElementById('powerCount'));
-      updateMaintenance();
+      if (parseFloat(w) > 6.5) {
+        addAlert('warn', 'Power draw above normal threshold: ' + w + 'W');
+      }
     }
 
     if (topic === 'smartlight/brightness') {
@@ -396,6 +376,10 @@
       document.getElementById('brightVal').textContent = b + '%';
       document.getElementById('brightSub').textContent = b === 100 ? 'Motion active' : 'Standby mode';
       addPoint(brightChart, brightData, b, document.getElementById('brightCount'));
+    }
+
+    if (topic === 'smartlight/alert') {
+      addAlert('danger', '⚠️ ' + val);
     }
   });
 </script>
